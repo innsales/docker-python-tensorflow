@@ -22,7 +22,7 @@ RUN yum -y install tar gzip zlib freetype-devel \
     which \
     xorg-x11-server-Xvfb \
     zlib-devel \
-    libsndfile-dev \
+    libsndfile \
     ffmpeg \
     && yum clean all
 
