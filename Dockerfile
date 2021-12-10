@@ -22,13 +22,74 @@ RUN yum -y install tar gzip zlib freetype-devel \
     which \
     xorg-x11-server-Xvfb \
     zlib-devel \
-    libsndfile \
-    ffmpeg \
+    wget \
+    make \
     && yum clean all
 
-RUN pip install awslambdaric
-RUN pip install boto3
-RUN pip install awscli
+# Install libsndfile from source
+RUN wget https://github.com/libsndfile/libsndfile/releases/download/1.0.31/libsndfile-1.0.31.tar.bz2
+RUN tar -xf libsndfile-1.0.31.tar.bz2
+RUN cd libsndfile-1.0.31 && ./configure
+RUN cd libsndfile-1.0.31 && make
+RUN cd libsndfile-1.0.31 && make install
+
+# Install FFmpeg from source
+RUN yum -y install autoconf automake bzip2 bzip2-devel cmake freetype-devel gcc gcc-c++ git libtool make pkgconfig zlib-devel
+RUN mkdir ~/ffmpeg_sources
+
+# NASM
+RUN cd ~/ffmpeg_sources && wget https://www.nasm.us/pub/nasm/releasebuilds/2.15.05/nasm-2.15.05.tar.bz2
+RUN cd ~/ffmpeg_sources && tar xjvf nasm-2.15.05.tar.bz2
+RUN cd ~/ffmpeg_sources/nasm-2.15.05 && ./autogen.sh
+RUN cd ~/ffmpeg_sources/nasm-2.15.05 && ./configure --prefix="/ffmpeg_build" --bindir="/bin"
+RUN cd ~/ffmpeg_sources/nasm-2.15.05 && make 
+RUN cd ~/ffmpeg_sources/nasm-2.15.05 && make install
+RUN cd ~/ffmpeg_sources/nasm-2.15.05 && hash -d nasm
+
+# Yasm
+RUN cd ~/ffmpeg_sources && wget https://www.tortall.net/projects/yasm/releases/yasm-1.3.0.tar.gz
+RUN cd ~/ffmpeg_sources && tar xzvf yasm-1.3.0.tar.gz
+RUN cd ~/ffmpeg_sources/yasm-1.3.0 && ./configure --prefix="/ffmpeg_build" --bindir="/bin"
+RUN cd ~/ffmpeg_sources/yasm-1.3.0 && make
+RUN cd ~/ffmpeg_sources/yasm-1.3.0 && make install
+
+# ACC
+RUN cd ~/ffmpeg_sources && git clone --depth 1 https://github.com/mstorsjo/fdk-aac
+RUN cd ~/ffmpeg_sources/fdk-aac && autoreconf -fiv
+RUN cd ~/ffmpeg_sources/fdk-aac && ./configure --prefix="/ffmpeg_build" --disable-shared
+RUN cd ~/ffmpeg_sources/fdk-aac && make
+RUN cd ~/ffmpeg_sources/fdk-aac && make install
+
+# libmp3lame
+RUN cd ~/ffmpeg_sources && wget https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz
+RUN cd ~/ffmpeg_sources && tar xzvf lame-3.100.tar.gz
+RUN cd ~/ffmpeg_sources/lame-3.100 && ./configure --prefix="/ffmpeg_build" --bindir="/bin" --disable-shared --enable-nasm
+RUN cd ~/ffmpeg_sources/lame-3.100 && make
+RUN cd ~/ffmpeg_sources/lame-3.100 && make install
+
+# Install FFMPEG
+RUN cd ~/ffmpeg_sources && wget https://ffmpeg.org/releases/ffmpeg-snapshot.tar.bz2
+RUN cd ~/ffmpeg_sources && tar xjvf ffmpeg-snapshot.tar.bz2
+RUN cd ~/ffmpeg_sources/ffmpeg && PATH="/bin:$PATH" PKG_CONFIG_PATH="/ffmpeg_build/lib/pkgconfig" ./configure \
+  --prefix="/ffmpeg_build" \
+  --pkg-config-flags="--static" \
+  --extra-cflags="-I/ffmpeg_build/include" \
+  --extra-ldflags="-L/ffmpeg_build/lib" \
+  --extra-libs=-lpthread \
+  --extra-libs=-lm \
+  --bindir="/bin" \
+  --enable-gpl \
+  --enable-libfdk_aac \
+  --enable-libfreetype \
+  --enable-libmp3lame \
+#   --enable-libopus \
+#   --enable-libvpx \
+#   --enable-libx264 \
+#   --enable-libx265 \
+  --enable-nonfree
+RUN cd ~/ffmpeg_sources/ffmpeg && make
+RUN cd ~/ffmpeg_sources/ffmpeg && make install
+RUN cd ~/ffmpeg_sources/ffmpeg && hash -d ffmpeg
 
 COPY ./requirements.txt ./
 
