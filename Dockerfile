@@ -1,4 +1,4 @@
-FROM python:3.7
+FROM alexberkovich/alpine-anaconda3
 
 COPY ./requirements.txt ./requirements.txt
 
